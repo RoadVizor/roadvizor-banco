@@ -242,3 +242,117 @@ INSERT INTO componente(nome, unidade_medida, depende_de)
 -- CREATE USER 'roadvizor_user' IDENTIFIED BY 'sptech';
 -- GRANT INSERT, SELECT, UPDATE, DELETE ON roadvizor.* TO 'roadvizor_user';
 -- SHOW GRANTS FOR 'roadvizor_user';
+
+-- CASO VC JÁ ADICIOUNOU O ANTIGO INSERT, FAÇA ISSO:
+/*UPDATE endereco
+SET
+    cep = '01001000',
+    bairro = 'Sé',
+    latitude = -23.5503099,
+    longitude = -46.6342009
+WHERE id_endereco IN (1, 2);
+*/
+
+INSERT INTO endereco (
+    cep,
+    logradouro,
+    bairro,
+    localidade,
+    uf,
+    numero,
+    km,
+    sentido,
+    latitude,
+    longitude
+) VALUES
+
+(
+    '01001000', 'Praça da Sé',
+    'Sé', 'São Paulo', 'SP',
+    '100', 'KM 15', 'Norte',
+    -23.5503099, -46.6342009
+),
+
+(
+    '00000001', 'Avenida Paulista',
+    'Bela Vista', 'São Paulo', 'SP',
+    '1000', 'KM 0', 'Centro',
+    -23.561414, -46.655881
+),
+
+(
+    '00000002', 'Rua dos Pinheiros',
+    'Pinheiros', 'São Paulo', 'SP',
+    '500', 'KM 0', 'Leste',
+    -23.567800, -46.691200
+),
+
+(
+    '00000003', 'Avenida do Estado',
+    'Mooca', 'São Paulo', 'SP',
+    '2500', 'KM 5', 'Sul',
+    -23.559500, -46.608000
+),
+
+(
+    '00000004', 'Avenida Radial Leste',
+    'Tatuapé', 'São Paulo', 'SP',
+    '3000', 'KM 10', 'Leste',
+    -23.540000, -46.576000
+),
+
+(
+    '00000005', 'Avenida Cruzeiro do Sul',
+    'Santana', 'São Paulo', 'SP',
+    '1500', 'KM 3', 'Norte',
+    -23.504500, -46.625000
+),
+
+(
+    '00000006', 'Avenida Jacu-Pêssego',
+    'Itaquera', 'São Paulo', 'SP',
+    '4000', 'KM 20', 'Leste',
+    -23.558000, -46.460000
+),
+
+(
+    '00000007', 'Avenida das Nações Unidas',
+    'Santo Amaro', 'São Paulo', 'SP',
+    '12000', 'KM 12', 'Sul',
+    -23.625000, -46.701000
+),
+
+(
+    '00000008', 'Rodovia Raposo Tavares',
+    'Butantã', 'São Paulo', 'SP',
+    '1000', 'KM 15', 'Oeste',
+    -23.571000, -46.723000
+),
+
+(
+    '00000009', 'Rodovia Anhanguera',
+    'Lapa', 'São Paulo', 'SP',
+    '500', 'KM 10', 'Interior',
+    -23.511000, -46.738000
+),
+
+(
+    '00000010', 'Avenida Interlagos',
+    'Interlagos', 'São Paulo', 'SP',
+    '7000', 'KM 5', 'Sul',
+    -23.682000, -46.675000
+),
+
+(
+    '00000011', 'Rodovia dos Bandeirantes',
+    'Perus', 'São Paulo', 'SP',
+    '1000', 'KM 25', 'Interior',
+    -23.409000, -46.758000
+),
+
+(
+    '00000012', 'Rodovia Castello Branco',
+    'Vila Leopoldina', 'São Paulo', 'SP',
+    '2000', 'KM 13', 'Interior',
+    -23.535000, -46.750000
+);
