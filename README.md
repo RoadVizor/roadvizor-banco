@@ -1,4 +1,5 @@
 # 🗄️ RoadVizor — Banco de Dados
+![MySQL](https://shields.io)
 
 > Sistema de monitoramento de recursos computacionais para servidores de pedágio **Free Flow**.
 
