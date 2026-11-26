@@ -1,54 +1,36 @@
-
 CREATE DATABASE IF NOT EXISTS roadvizor;
 
 USE roadvizor;
 
--- DROP DATABASE roadvizor;
+-- =====================================================
+-- 1. ENDERECO
+-- =====================================================
 
--- OBS: muitas das decisões tomadas ao criar esta tabela foram motivadas com base na API viaCEP
--- disponível em: https://viacep.com.br.
--- e no entendimento de que ambos os endereços de CCOs e Pedágios poderão ser guardados nesta tabela.
-
-CREATE TABLE IF NOT EXISTS endereco(
+CREATE TABLE IF NOT EXISTS endereco (
     id_endereco INT PRIMARY KEY AUTO_INCREMENT,
 
-    -- campos úteis para o viaCEP
     cep CHAR(8) NOT NULL,
     logradouro VARCHAR(120) NULL,
     bairro VARCHAR(60) NULL,
     localidade VARCHAR(60) NOT NULL,
     uf CHAR(2) NOT NULL,
 
-    -- campos úteis no contexto Empresa/CCO
     numero VARCHAR(20) NULL,
     complemento VARCHAR(60) NULL,
 
-    -- campos úteis no contexto Pórtico/Servidor
     km VARCHAR(20) NULL,
     sentido VARCHAR(30) NULL,
 
-    -- campos utilizados pelo monitoramento climático
     latitude DECIMAL(10,7) NULL,
     longitude DECIMAL(10,7) NULL
 );
 
-INSERT INTO endereco (
-    cep, logradouro, bairro, localidade, uf, numero, km, sentido
-) VALUES (
-    '01001000',
-    'Praça da Sé',
-    'Sé',
-    'São Paulo',
-    'SP',
-    '100',
-    'KM 15',
-    'Norte'
-);
+-- =====================================================
+-- 2. EMPRESA
+-- =====================================================
 
-CREATE TABLE IF NOT EXISTS empresa(
+CREATE TABLE IF NOT EXISTS empresa (
     id_empresa INT PRIMARY KEY AUTO_INCREMENT,
-
-    -- endereco_id INT NOT NULL,
 
     cnpj CHAR(14) NOT NULL UNIQUE,
     razao_social VARCHAR(120) NOT NULL,
@@ -56,54 +38,123 @@ CREATE TABLE IF NOT EXISTS empresa(
     email VARCHAR(255) NOT NULL UNIQUE,
 
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-
-    -- CONSTRAINT fk_empresa_endereco FOREIGN KEY (endereco_id)
-    -- REFERENCES endereco(id_endereco)
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS usuario(
+-- =====================================================
+-- 3. REGIAO
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS regiao (
+    id_regiao INT NOT NULL AUTO_INCREMENT,
+    empresa_id INT NOT NULL,
+
+    nome VARCHAR(40) NOT NULL,
+    slug VARCHAR(40) NOT NULL,
+
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT pk_regiao PRIMARY KEY (id_regiao),
+
+    CONSTRAINT uq_regiao_id_empresa
+        UNIQUE (id_regiao, empresa_id),
+
+    CONSTRAINT uq_regiao_empresa_nome
+        UNIQUE (empresa_id, nome),
+
+    CONSTRAINT uq_regiao_empresa_slug
+        UNIQUE (empresa_id, slug),
+
+    CONSTRAINT chk_regiao_slug
+        CHECK (
+            slug REGEXP '^[a-z0-9-]+$'
+            AND slug NOT IN ('todas', 'indice')
+        ),
+
+    CONSTRAINT fk_regiao_empresa
+        FOREIGN KEY (empresa_id)
+        REFERENCES empresa(id_empresa)
+);
+
+-- =====================================================
+-- 4. USUARIO
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS usuario (
     id_usuario INT PRIMARY KEY AUTO_INCREMENT,
+
     empresa_id INT NOT NULL,
     supervisor_id INT NULL,
 
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     senha VARCHAR(255) NOT NULL,
+
     nivel_acesso TINYINT NOT NULL DEFAULT 2,
 
-    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    cargo VARCHAR(100) NOT NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    jira_account_id VARCHAR(255) NULL,
 
-    CONSTRAINT fk_usuario_empresa FOREIGN KEY (empresa_id)
+    criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_usuario_empresa
+        FOREIGN KEY (empresa_id)
         REFERENCES empresa(id_empresa),
 
-    CONSTRAINT fk_usuario_usuario FOREIGN KEY (supervisor_id)
+    CONSTRAINT fk_usuario_usuario
+        FOREIGN KEY (supervisor_id)
         REFERENCES usuario(id_usuario)
 );
 
-CREATE TABLE IF NOT EXISTS servidor(
+-- =====================================================
+-- 5. SERVIDOR
+-- VERSAO UNIFICADA
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS servidor (
     id_servidor INT NOT NULL AUTO_INCREMENT,
     empresa_id INT NOT NULL,
     endereco_id INT NOT NULL,
+    regiao_id INT NULL,
 
     endereco_mac CHAR(12) NOT NULL UNIQUE,
     apelido VARCHAR(60) NOT NULL,
     modelo VARCHAR(60) NOT NULL,
 
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
 
-    CONSTRAINT pk_servidor PRIMARY KEY (id_servidor, empresa_id),
+    CONSTRAINT pk_servidor
+        PRIMARY KEY (id_servidor, empresa_id),
 
-    CONSTRAINT fk_servidor_empresa FOREIGN KEY (empresa_id)
+    CONSTRAINT uq_servidor_id
+        UNIQUE (id_servidor),
+
+    CONSTRAINT fk_servidor_empresa
+        FOREIGN KEY (empresa_id)
         REFERENCES empresa(id_empresa),
 
-    CONSTRAINT fk_servidor_endereco FOREIGN KEY (endereco_id)
-        REFERENCES endereco(id_endereco)
+    CONSTRAINT fk_servidor_endereco
+        FOREIGN KEY (endereco_id)
+        REFERENCES endereco(id_endereco),
+
+    CONSTRAINT fk_servidor_regiao
+        FOREIGN KEY (regiao_id, empresa_id)
+        REFERENCES regiao(id_regiao, empresa_id)
 );
 
-CREATE TABLE IF NOT EXISTS componente(
+-- =====================================================
+-- 6. COMPONENTE
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS componente (
     id_componente INT PRIMARY KEY AUTO_INCREMENT,
 
     nome VARCHAR(60) NOT NULL,
@@ -111,38 +162,61 @@ CREATE TABLE IF NOT EXISTS componente(
     depende_de VARCHAR(60) NOT NULL,
 
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_componente_nome CHECK(nome IN('cpu', 'ram', 'disco', 'placa_rede')),
+    CONSTRAINT chk_componente_nome
+        CHECK (
+            nome IN ('cpu', 'ram', 'disco', 'placa_rede')
+        ),
 
-    CONSTRAINT chk_componente_unidade_medida CHECK(unidade_medida IN(
-        'pct',
-        'MiB', 'GiB', 'TiB',
-        'bps', 'Mbps', 'Gbps'
-    ))
+    CONSTRAINT chk_componente_unidade_medida
+        CHECK (
+            unidade_medida IN (
+                'pct',
+                'MiB', 'GiB', 'TiB',
+                'bps', 'Mbps', 'Gbps'
+            )
+        )
 );
 
-CREATE TABLE IF NOT EXISTS servidor_componente(
+-- =====================================================
+-- 7. SERVIDOR_COMPONENTE
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS servidor_componente (
     servidor_id INT NOT NULL,
     empresa_id INT NOT NULL,
     componente_id INT NOT NULL,
 
-    limite_max DECIMAL(10, 3) NOT NULL,
-    limite_min DECIMAL(10, 3) NULL,
-    capacidade_total DECIMAL(10, 3) NOT NULL,
+    limite_max DECIMAL(10,3) NOT NULL,
+    limite_min DECIMAL(10,3) NULL,
+    capacidade_total DECIMAL(10,3) NOT NULL,
     monitorado TINYINT NOT NULL DEFAULT 1,
 
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
 
-    CONSTRAINT pk_servidor_componente PRIMARY KEY(servidor_id, empresa_id, componente_id),
+    CONSTRAINT pk_servidor_componente
+        PRIMARY KEY (
+            servidor_id,
+            empresa_id,
+            componente_id
+        ),
 
-    CONSTRAINT fk_servidor_componente_servidor FOREIGN KEY (servidor_id, empresa_id)
+    CONSTRAINT fk_servidor_componente_servidor
+        FOREIGN KEY (servidor_id, empresa_id)
         REFERENCES servidor(id_servidor, empresa_id),
 
-    CONSTRAINT fk_servidor_componente_componente FOREIGN KEY (componente_id)
+    CONSTRAINT fk_servidor_componente_componente
+        FOREIGN KEY (componente_id)
         REFERENCES componente(id_componente)
 );
+
+-- =====================================================
+-- 8. RELATORIO_OCORRENCIA
+-- =====================================================
 
 CREATE TABLE IF NOT EXISTS relatorio_ocorrencia (
     id_relatorio INT AUTO_INCREMENT PRIMARY KEY,
@@ -162,35 +236,54 @@ CREATE TABLE IF NOT EXISTS relatorio_ocorrencia (
     atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (servidor_id)
+    CONSTRAINT fk_relatorio_servidor
+        FOREIGN KEY (servidor_id)
         REFERENCES servidor(id_servidor),
 
-    FOREIGN KEY (usuario_id)
+    CONSTRAINT fk_relatorio_usuario
+        FOREIGN KEY (usuario_id)
         REFERENCES usuario(id_usuario)
 );
 
--- | Monitoramento Climático | --
+-- =====================================================
+-- 9. LOG
+-- =====================================================
 
-CREATE TABLE IF NOT EXISTS monitoramento_climatico(
-    id_clima INT PRIMARY KEY AUTO_INCREMENT,
-    endereco_id INT NOT NULL,
+CREATE TABLE IF NOT EXISTS log (
+    log_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
 
-    temperatura DECIMAL(5,2) NULL,
-    umidade DECIMAL(5,2) NULL,
-    velocidade_vento DECIMAL(6,2) NULL,
-    direcao_vento VARCHAR(20) NULL,
-    precipitacao DECIMAL(7,2) NULL,
-    condicao_climatica VARCHAR(80) NULL,
+    servidor_id INT NOT NULL,
+    empresa_id INT NOT NULL,
+    componente_id INT NOT NULL,
 
-    fonte_dados VARCHAR(100) NOT NULL DEFAULT 'WeatherAPI',
+    titulo VARCHAR(200) NOT NULL,
+    descricao_ia TEXT,
 
-    coletado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM(
+        'Baixo',
+        'Médio',
+        'Crítico',
+        'Inativo'
+    ) NOT NULL,
 
-    CONSTRAINT fk_monitoramento_climatico_endereco FOREIGN KEY (endereco_id)
-        REFERENCES endereco(id_endereco)
+    valor_uso DECIMAL(5,2),
+
+    data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_servidor_log
+        FOREIGN KEY (servidor_id, empresa_id)
+        REFERENCES servidor(id_servidor, empresa_id),
+
+    CONSTRAINT fk_componente_log
+        FOREIGN KEY (componente_id)
+        REFERENCES componente(id_componente),
+
+    INDEX idx_log_empresa_data (empresa_id, data_hora)
 );
 
--- | Stored Procedure(s) | --
+-- =====================================================
+-- 10. STORED PROCEDURE
+-- =====================================================
 
 DELIMITER $$
 
@@ -203,24 +296,43 @@ CREATE PROCEDURE sp_cadastrar_empresa(
 )
 BEGIN
 
-    -- Tratamento de Erro na Procedure
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
+
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Erro no Cadastro de Empresa.';
     END;
 
-    -- Corpo da Procedure
     START TRANSACTION;
 
-        -- 1. Criar Empresa
-        INSERT INTO empresa(cnpj, razao_social, nome_fantasia, email)
-            VALUES (in_cnpj, in_razao_social, in_nome_fantasia, in_email);
+        INSERT INTO empresa (
+            cnpj,
+            razao_social,
+            nome_fantasia,
+            email
+        )
+        VALUES (
+            in_cnpj,
+            in_razao_social,
+            in_nome_fantasia,
+            in_email
+        );
 
-        -- 2. Criar Usuário ADM da Empresa criada
-        INSERT INTO usuario(empresa_id, nome, email, senha, nivel_acesso)
-            VALUES (LAST_INSERT_ID(), in_nome_fantasia, in_email, SHA2(in_senha, 256), 1);
+        INSERT INTO usuario (
+            empresa_id,
+            nome,
+            email,
+            senha,
+            nivel_acesso
+        )
+        VALUES (
+            LAST_INSERT_ID(),
+            in_nome_fantasia,
+            in_email,
+            SHA2(in_senha, 256),
+            1
+        );
 
     COMMIT;
 
@@ -228,30 +340,24 @@ END$$
 
 DELIMITER ;
 
--- | Inserts-padrão | --
+-- =====================================================
+-- 11. INSERTS-PADRAO DE COMPONENTES
+-- =====================================================
 
-INSERT INTO componente(nome, unidade_medida, depende_de)
-    VALUES
+INSERT INTO componente (
+    nome,
+    unidade_medida,
+    depende_de
+)
+VALUES
     ('cpu', 'pct', 'psutil.cpu_percent()'),
     ('ram', 'MiB', 'psutil.virtual_memory()'),
     ('disco', 'GiB', 'psutil.disk_usage("/")'),
     ('placa_rede', 'Mbps', 'psutil.net_if_stats()');
 
--- [!] Rodar scripts abaixo APENAS com o root do BD.
-
--- CREATE USER 'roadvizor_user' IDENTIFIED BY 'sptech';
--- GRANT INSERT, SELECT, UPDATE, DELETE ON roadvizor.* TO 'roadvizor_user';
--- SHOW GRANTS FOR 'roadvizor_user';
-
--- CASO VC JÁ ADICIOUNOU O ANTIGO INSERT, FAÇA ISSO:
-/*UPDATE endereco
-SET
-    cep = '01001000',
-    bairro = 'Sé',
-    latitude = -23.5503099,
-    longitude = -46.6342009
-WHERE id_endereco IN (1, 2);
-*/
+-- =====================================================
+-- 12. INSERTS-PADRAO DE ENDERECOS
+-- =====================================================
 
 INSERT INTO endereco (
     cep,
@@ -264,7 +370,8 @@ INSERT INTO endereco (
     sentido,
     latitude,
     longitude
-) VALUES
+)
+VALUES
 
 (
     '01001000', 'Praça da Sé',
@@ -356,3 +463,24 @@ INSERT INTO endereco (
     '2000', 'KM 13', 'Interior',
     -23.535000, -46.750000
 );
+
+-- =====================================================
+-- 13. USUARIO E PERMISSOES
+-- EXECUTAR COMO ROOT DO MYSQL
+-- =====================================================
+
+-- CREATE USER 'roadvizor_user' IDENTIFIED BY 'sptech';
+
+-- GRANT INSERT, SELECT, UPDATE, DELETE
+-- ON roadvizor.* TO 'roadvizor_user';
+
+-- SHOW GRANTS FOR 'roadvizor_user';
+
+-- =====================================================
+-- OBSERVACOES
+-- =====================================================
+
+-- 1. Este script cria a estrutura, procedure e dados-padrao.
+-- 2. Ele nao apaga tabelas ou dados existentes.
+-- 3. CREATE TABLE IF NOT EXISTS nao altera tabelas antigas.
+-- 4. Para atualizar um banco existente, utilize ALTER TABLE.
