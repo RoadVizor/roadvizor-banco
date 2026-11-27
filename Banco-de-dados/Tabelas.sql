@@ -29,17 +29,24 @@ CREATE TABLE IF NOT EXISTS endereco (
 -- 2. EMPRESA
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS empresa (
-    id_empresa INT PRIMARY KEY AUTO_INCREMENT,
-
+CREATE TABLE IF NOT EXISTS empresa(
+        id_empresa INT PRIMARY KEY AUTO_INCREMENT,
+    -- endereco_id INT NOT NULL,
+    
     cnpj CHAR(14) NOT NULL UNIQUE,
     razao_social VARCHAR(120) NOT NULL,
     nome_fantasia VARCHAR(120) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-
+    email VARCHAR(255) NOT NULL UNIQUE,         -- campo usado para contato
+    domain_jira VARCHAR(255) NOT NULL UNIQUE,
+    email_jira VARCHAR(255) NOT NULL UNIQUE,
+        api_token_jira VARCHAR(255) NOT NULL UNIQUE,
+    project_key VARCHAR(255) NOT NULL UNIQUE,
+    
     criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP
+    atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    
+    -- CONSTRAINT fk_empresa_endereco FOREIGN KEY (endereco_id)
+        --      REFERENCES endereco(id_endereco)
 );
 
 -- =====================================================
@@ -286,58 +293,37 @@ CREATE TABLE IF NOT EXISTS log (
 -- =====================================================
 
 DELIMITER $$
-
 CREATE PROCEDURE sp_cadastrar_empresa(
-    IN in_cnpj CHAR(14),
+        IN in_cnpj CHAR(14),
     IN in_razao_social VARCHAR(120),
     IN in_nome_fantasia VARCHAR(120),
     IN in_email VARCHAR(255),
-    IN in_senha VARCHAR(255)
-)
-BEGIN
+    IN in_senha VARCHAR(255),    
+    IN in_domain_jira VARCHAR(255),
+    IN in_email_jira VARCHAR(255),
+    IN in_api_token_jira VARCHAR(255),
+    In in_project_key VARCHAR(255)
+) BEGIN
 
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
+        -- Tratamento de Erro na Procedure
+        DECLARE EXIT HANDLER FOR SQLEXCEPTION
+        BEGIN
+                ROLLBACK;
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Erro no Cadastro de Empresa.';
+        END;
 
-        SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Erro no Cadastro de Empresa.';
-    END;
+        -- Corpo da Procedure
+        START TRANSACTION;
+                -- 1. Criar Empresa
+                INSERT INTO empresa(cnpj, razao_social, nome_fantasia, email, domain_jira, email_jira, api_token_jira, project_key)
+                        VALUES (in_cnpj, in_razao_social, in_nome_fantasia, in_email, in_domain_jira, in_email_jira, in_api_token_jira, in_project_key);
 
-    START TRANSACTION;
-
-        INSERT INTO empresa (
-            cnpj,
-            razao_social,
-            nome_fantasia,
-            email
-        )
-        VALUES (
-            in_cnpj,
-            in_razao_social,
-            in_nome_fantasia,
-            in_email
-        );
-
-        INSERT INTO usuario (
-            empresa_id,
-            nome,
-            email,
-            senha,
-            nivel_acesso
-        )
-        VALUES (
-            LAST_INSERT_ID(),
-            in_nome_fantasia,
-            in_email,
-            SHA2(in_senha, 256),
-            1
-        );
-
+                -- 2. Criar Usuário ADM da Empresa criada
+                INSERT INTO usuario(empresa_id, nome, email, senha, nivel_acesso, cargo)
+                        VALUES (LAST_INSERT_ID(), in_nome_fantasia, in_email, SHA2(in_senha, 256), 1, 'Administrador');
     COMMIT;
 
 END$$
-
 DELIMITER ;
 
 -- =====================================================
